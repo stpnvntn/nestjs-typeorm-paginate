@@ -208,24 +208,17 @@ async function paginateQueryBuilder<T, CustomMetaType = IPaginationMeta>(
   queryBuilder: SelectQueryBuilder<T>,
   options: IPaginationOptions<CustomMetaType>,
 ): Promise<Pagination<T, CustomMetaType>> {
-  const [page, limit, route, paginationType, countQueries, cacheOption] =
+  const [page, limit, route, paginationType, cacheOption] =
     resolveOptions(options);
 
-  const promises: [Promise<T[]>, Promise<number> | undefined] = [
-    (PaginationTypeEnum.LIMIT_AND_OFFSET === paginationType
+  const queryBuilderWithLimit =
+    paginationType === PaginationTypeEnum.LIMIT_AND_OFFSET
       ? queryBuilder.limit(limit).offset((page - 1) * limit)
-      : queryBuilder.take(limit).skip((page - 1) * limit)
-    )
-      .cache(cacheOption)
-      .getMany(),
-    undefined,
-  ];
+      : queryBuilder.take(limit).skip((page - 1) * limit);
 
-  if (countQueries) {
-    promises[1] = countQuery(queryBuilder, cacheOption);
-  }
-
-  const [items, total] = await Promise.all(promises);
+  const [items, total] = await queryBuilderWithLimit
+    .cache(cacheOption)
+    .getManyAndCount();
 
   return createPaginationObject<T, CustomMetaType>({
     items,
